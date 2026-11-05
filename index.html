@@ -1,0 +1,2226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>보험에서의 AI</title>
+<meta name="description" content="장기손사 인보험 실무 활용 · 현대해상 사망·후유장해 심사 실무자를 위한 생성형 AI 실습">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F2EEE6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121210" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%277%27%20fill%3D%27%230E0E0C%27%2F%3E%3Crect%20x%3D%277%27%20y%3D%2710%27%20width%3D%2718%27%20height%3D%273%27%20rx%3D%271.5%27%20fill%3D%27%23D4AF5A%27%2F%3E%3Crect%20x%3D%277%27%20y%3D%2716%27%20width%3D%2718%27%20height%3D%272.5%27%20rx%3D%271.25%27%20fill%3D%27%23C3BFB5%27%2F%3E%3Crect%20x%3D%277%27%20y%3D%2721%27%20width%3D%2711%27%20height%3D%272.5%27%20rx%3D%271.25%27%20fill%3D%27%23C3BFB5%27%2F%3E%3C%2Fsvg%3E">
+<style>
+:root {
+  --bg: #F2EEE6;
+  --ink: #16150F;
+  --ink-soft: #4A4740;
+  --ink-faint: #8B877C;
+  --card: #0E0E0C;
+  --card-ink: #FFFFFF;
+  --card-soft: #C3BFB5;
+  --accent: #D4AF5A;
+  --surface: #FFFFFF;
+  --line: #DED8C9;
+  --fs: 1;
+}
+:root[data-theme="dark"] {
+  --bg: #121210;
+  --ink: #F3EFE7;
+  --ink-soft: #B6B2A8;
+  --ink-faint: #7C786E;
+  --card: #1F1F1B;
+  --card-ink: #FFFFFF;
+  --card-soft: #C3BFB5;
+  --accent: #E2C173;
+  --surface: #1A1A17;
+  --line: #302F29;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121210;
+    --ink: #F3EFE7;
+    --ink-soft: #B6B2A8;
+    --ink-faint: #7C786E;
+    --card: #1F1F1B;
+    --card-ink: #FFFFFF;
+    --card-soft: #C3BFB5;
+    --accent: #E2C173;
+    --surface: #1A1A17;
+    --line: #302F29;
+  }
+}
+/* ============================================================
+   강의 웹교재 — 디자인 시스템
+   색상 값은 page.html.j2 상단에서 :root 변수로 주입됩니다.
+   (content/config.yml 의 theme: / dark: 블록으로 덮어쓸 수 있음)
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+               Pretendard, "Pretendard Variable", "Noto Sans KR",
+               "Malgun Gothic", "맑은 고딕", Roboto, sans-serif;
+  font-size: calc(17px * var(--fs));
+  line-height: 1.75;
+  letter-spacing: -0.01em;
+  word-break: keep-all;      /* 한글 단어 중간에서 줄이 끊기지 않게 */
+  overflow-wrap: anywhere;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ── 스크롤 진행바 ──────────────────────────────────────── */
+
+.progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  z-index: 30;
+  background: transparent;
+  pointer-events: none;
+}
+.progress > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.1s linear;
+}
+
+/* ── 상단 알약 탭 ───────────────────────────────────────── */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+.topbar::after {
+  content: "";
+  display: block;
+  height: 16px;
+  background: linear-gradient(to bottom, var(--bg), transparent);
+}
+
+.site-title {
+  margin: 0 0 8px;
+  padding: 0 18px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.tabs-wrap { position: relative; }
+
+/* 탭이 화면보다 길 때만 오른쪽 끝을 흐리게 해 "더 있다"를 알린다. */
+.tabs-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 34px;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background: linear-gradient(to right, transparent, var(--bg));
+}
+.tabs-wrap.is-scrollable::after { opacity: 1; }
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  padding: 6px 16px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.pill {
+  position: relative;
+  flex: 0 0 auto;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 9px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.pill:hover { border-color: var(--ink-faint); }
+.pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pill.is-active {
+  background: var(--card);
+  border-color: var(--card);
+  color: var(--card-ink);
+}
+
+/* 다 읽은 Day 표시 */
+.pill.is-read::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.pill.is-read.is-active::after { background: var(--accent); }
+
+/* ── 레이아웃 ───────────────────────────────────────────── */
+
+main { padding: 0 0 40px; }
+
+.day {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+.day[hidden] { display: none; }
+
+/* ── 검은 히어로 카드 ───────────────────────────────────── */
+
+.hero {
+  background: var(--card);
+  color: var(--card-soft);
+  border-radius: 28px;
+  padding: 30px 26px 34px;
+  margin: 4px 0 34px;
+}
+
+.hero .eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.hero .readtime {
+  color: var(--card-soft);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+}
+.hero .readtime::before { content: "· "; }
+
+.hero .hero-title {
+  margin: 0 0 24px;
+  color: var(--card-ink);
+  font-size: 1.85rem;
+  font-weight: 800;
+  line-height: 1.32;
+  letter-spacing: -0.03em;
+}
+
+.hero p { margin: 0 0 18px; }
+.hero p:last-child { margin-bottom: 0; }
+.hero strong { color: var(--card-ink); font-weight: 700; }
+.hero a { color: var(--accent); }
+.hero h2, .hero h3 {
+  color: var(--card-ink);
+  margin: 28px 0 12px;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.hero ol, .hero ul { margin: 20px 0; padding-left: 1.4em; }
+.hero li { margin: 0 0 12px; color: var(--card-soft); }
+.hero li::marker { color: var(--card-soft); }
+.hero li strong { color: var(--card-ink); }
+.hero hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.14); margin: 26px 0; }
+.hero code {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--card-ink);
+}
+
+/* ── 본문 타이포그래피 ──────────────────────────────────── */
+
+.prose h2 {
+  margin: 44px 0 16px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  scroll-margin-top: 84px;
+}
+
+.prose h3 {
+  margin: 32px 0 12px;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--ink);
+  scroll-margin-top: 84px;
+}
+
+.prose p { margin: 0 0 18px; color: var(--ink-soft); }
+.prose strong { color: var(--ink); font-weight: 700; }
+
+.prose ol, .prose ul {
+  margin: 0 0 20px;
+  padding-left: 1.4em;
+  color: var(--ink-soft);
+}
+.prose li { margin: 0 0 10px; }
+.prose li > ul, .prose li > ol { margin-top: 10px; }
+
+.prose a {
+  color: var(--ink);
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 40px 0;
+}
+
+.prose blockquote {
+  margin: 0 0 20px;
+  padding: 2px 0 2px 18px;
+  border-left: 3px solid var(--line);
+  color: var(--ink-faint);
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 16px;
+  display: block;
+  margin: 24px 0;
+}
+
+mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* 검색 결과로 이동했을 때 잠깐 반짝이게 */
+.is-flash {
+  animation: flash 1.4s ease-out;
+  border-radius: 8px;
+}
+@keyframes flash {
+  0%, 55% { background: color-mix(in srgb, var(--accent) 34%, transparent); }
+  100% { background: transparent; }
+}
+
+/* 검색어 표시는 배경으로 눈에 띄게 */
+mark.hit {
+  background: var(--accent);
+  color: var(--card);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               "D2Coding", monospace;
+  font-size: 0.88em;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  padding: 0.12em 0.4em;
+  border-radius: 6px;
+}
+
+/* ── 체크리스트 ─────────────────────────────────────────── */
+
+.contains-task-list { list-style: none; padding-left: 0; }
+.task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 9px 14px;
+  margin: 0 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  transition: opacity 0.15s ease;
+}
+.task-list-item-checkbox {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  margin: 5px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+/* 체크한 항목은 li 자체에 취소선을 걸어야 감싸는 태그 없는 글자에도 적용된다. */
+.task-list-item.is-done { opacity: 0.55; text-decoration: line-through; }
+.task-list-item.is-done .task-list-item-checkbox { text-decoration: none; }
+
+/* ── 목차 ───────────────────────────────────────────────── */
+
+.toc {
+  margin: 0 0 36px;
+  padding: 18px 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+.toc-label {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+.toc ol {
+  margin: 0;
+  padding-left: 0;
+  font-size: 0.95rem;
+  list-style: none;
+  counter-reset: toc-item;
+}
+.toc li { margin: 0 0 7px; display: grid; grid-template-columns: 2em minmax(0, 1fr); counter-increment: toc-item; }
+.toc li::before { content: counter(toc-item) "."; text-align: left; }
+.toc li:last-child { margin-bottom: 0; }
+.toc li.toc-l3 { margin-left: 0; font-size: inherit; }
+.toc a { color: var(--ink-soft); text-decoration: none; }
+.toc a:hover { color: var(--ink); text-decoration: underline; }
+
+/* ── 강조 박스 ──────────────────────────────────────────── */
+
+.callout {
+  margin: 0 0 24px;
+  padding: 18px 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 14px;
+  color: var(--ink-soft);
+}
+.callout-title {
+  margin: 0 0 8px !important;
+  font-weight: 700;
+  color: var(--ink);
+}
+.callout > p:last-child { margin-bottom: 0; }
+.callout ul, .callout ol { margin-bottom: 0; }
+
+/* ── 프롬프트 박스 · 코드 블록 ──────────────────────────── */
+
+.prompt {
+  margin: 0 0 26px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.prompt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 18px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.prompt-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.prompt-body {
+  margin: 0;
+  padding: 18px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.code {
+  position: relative;
+  margin: 0 0 26px;
+  background: var(--card);
+  border-radius: 16px;
+}
+.code pre { margin: 0; padding: 20px 18px; overflow-x: auto; }
+.code code {
+  background: none;
+  padding: 0;
+  color: var(--card-ink);
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+.code .copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: transparent;
+  color: var(--card-ink);
+}
+.code .copy-btn:hover { background: rgba(255, 255, 255, 0.22); }
+
+.copy-btn {
+  flex: 0 0 auto;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.copy-btn:hover { background: var(--bg); color: var(--ink); }
+.copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.copy-btn.is-done {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--card);
+}
+
+/* ── 표 ─────────────────────────────────────────────────── */
+
+.table-wrap {
+  margin: 0 0 26px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.table-wrap table { border-collapse: collapse; width: 100%; font-size: 0.94rem; }
+.table-wrap th, .table-wrap td {
+  padding: 11px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  white-space: normal;
+}
+.table-wrap th { color: var(--ink); font-weight: 700; }
+.table-wrap tr:last-child td { border-bottom: 0; }
+
+/* ── 이전 / 다음 ────────────────────────────────────────── */
+
+.pager {
+  max-width: 720px;
+  margin: 44px auto 0;
+  padding: 0 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pager-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 700;
+  padding: 11px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pager-btn:hover { border-color: var(--ink-faint); }
+.pager-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pager-btn[disabled] { opacity: 0.32; cursor: default; }
+.pager-btn[disabled]:hover { border-color: var(--line); }
+
+/* ── 푸터 ───────────────────────────────────────────────── */
+
+.footer {
+  max-width: 720px;
+  margin: 56px auto 0;
+  padding: 26px 16px calc(90px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 0.86rem;
+}
+.footer p { margin: 0 0 4px; }
+.footer-sub { font-size: 0.8rem; }
+
+/* ── 오른쪽 아래 도구 모음 ──────────────────────────────── */
+
+.tools {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.tool {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.09);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tool:active { transform: scale(0.95); }
+/* 아래 display 규칙들이 브라우저 기본 [hidden] 처리를 이기므로 명시적으로 덮는다. */
+.tool[hidden] { display: none; }
+
+.tool-main, .tool-top {
+  width: 46px;
+  height: 46px;
+  font-size: 1.15rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 열린 상태는 밝은 화면·어두운 화면 양쪽에서 확실히 구분되도록 강조색을 쓴다. */
+.tool-main.is-open { background: var(--accent); color: var(--card); border-color: var(--accent); }
+
+/* 메뉴가 열리면 뒤 본문을 살짝 가려 버튼 글자가 또렷하게 읽히도록 한다. */
+.tools.is-open::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.tool-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+.tool-menu[hidden] { display: none; }
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+.tool-item span { font-weight: 700; }
+.tool-item i {
+  font-style: normal;
+  width: 1.2em;
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+/* ── 전체 검색 ──────────────────────────────────────────── */
+
+.search {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+  padding: max(16px, env(safe-area-inset-top)) 16px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.search[hidden] { display: none; }
+
+.search-box {
+  width: 100%;
+  max-width: 640px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.search-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+  padding: 8px 0;
+}
+.search-input:focus { outline: none; }
+/* 브라우저가 넣는 기본 지우기(✕) 버튼 — 우리 닫기 버튼과 겹쳐 보이므로 숨긴다. */
+.search-input::-webkit-search-cancel-button,
+.search-input::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+.search-close {
+  flex: 0 0 auto;
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 1.1rem;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.search-close:hover { background: var(--surface); color: var(--ink); }
+
+.search-results {
+  overflow-y: auto;
+  padding: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.search-hint, .search-empty {
+  margin: 0;
+  padding: 22px 12px;
+  color: var(--ink-faint);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.search-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink-soft);
+  padding: 11px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.search-item:hover, .search-item:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+.search-where {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  margin-bottom: 3px;
+}
+.search-snippet {
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* ── 복사 완료 토스트 ───────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 20px);
+  max-width: calc(100vw - 120px);
+  background: var(--card);
+  color: var(--card-ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 11px 22px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 45;
+  text-align: center;
+}
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ── 넓은 화면 ──────────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  body { font-size: calc(18px * var(--fs)); }
+  .site-title { text-align: center; }
+  .tabs { justify-content: center; padding: 10px 24px 12px; }
+  .tabs-wrap::after { display: none; }
+  .day { padding: 0 24px; }
+  .hero { padding: 44px 44px 48px; border-radius: 32px; }
+  .hero .hero-title { font-size: 2.35rem; }
+  .prose h2 { font-size: 1.6rem; margin-top: 56px; }
+  .pager, .footer { padding-left: 24px; padding-right: 24px; }
+  .tools { right: 24px; bottom: 24px; }
+}
+
+/* ── 인쇄 · PDF 저장 ────────────────────────────────────── */
+
+.print-cover { display: none; }
+@page {
+  size: A4 portrait;
+  margin: 0;
+  @bottom-center { content: counter(page); font: 8pt "Malgun Gothic", sans-serif; color: #666; }
+}
+@page:first { @bottom-center { content: none; } }
+
+@media print {
+  :root { --fs: 1 !important; --ink: #111 !important; --ink-soft: #333 !important; --ink-faint: #555 !important; --surface: #fff !important; --line: #aaa !important; }
+  .progress, .topbar, .tools, .search, .toast, .pager, .footer, .toc { display: none !important; }
+
+  .print-cover {
+    display: flex; flex-direction: column; position: relative;
+    height: 256mm; padding: 10mm 0 5mm;
+    color: #222; background: #fff;
+    break-after: page; break-inside: avoid;
+  }
+  .print-cover p { margin: 0; white-space: pre-line; }
+  .cover-logo { align-self: flex-end; max-width: 48mm; max-height: 20mm; object-fit: contain; margin-bottom: 10mm; }
+  .cover-brand { font-size: 12pt; padding-bottom: 5mm; border-bottom: 1pt solid #72533f; }
+  .cover-heading { margin-top: 25mm; }
+  .cover-label { font-size: 11pt; margin-bottom: 5mm !important; }
+  .cover-title { margin: 0 0 8mm; font-size: 32pt; line-height: 1.3; white-space: pre-line; letter-spacing: -0.03em; }
+  .cover-audience { font-size: 19pt; font-weight: 700; margin-bottom: 7mm !important; }
+  .cover-subtitle { font-size: 12pt; line-height: 1.65; margin-bottom: 10mm !important; }
+  .cover-topics { font-size: 12pt; line-height: 1.8; border-left: 3pt solid #72533f; padding-left: 5mm; }
+  .cover-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; margin-top: auto; padding-top: 12mm; }
+  .cover-access { flex: 1; min-width: 0; font-size: 9pt; line-height: 1.6; }
+  .cover-qr { display: block; width: 24mm; height: 24mm; object-fit: contain; margin-bottom: 3mm; }
+  .cover-instructor { flex: 0 1 70mm; text-align: right; font-size: 11pt; line-height: 1.6; }
+  .cover-corporate .cover-brand { border: 0; font-size: 22pt; line-height: 1.3; }
+  .cover-corporate .cover-heading { margin-top: 22mm; }
+  .cover-corporate .cover-topics { border: 0; padding-left: 0; }
+  .cover-image { padding: 0; }
+  .cover-artwork { width: 100%; height: 100%; object-fit: contain; }
+
+  /* 인쇄할 때는 모든 Day를 순서대로 펼친다. */
+  .day[hidden] { display: block !important; }
+  .day {
+    max-width: none;
+    padding: 0;
+    margin: 0; break-after: auto;
+  }
+  .day + .day { padding-top: 7mm; }
+  .day.print-break { break-before: page; padding-top: 0; }
+  .day:last-of-type { page-break-after: auto; break-after: auto; }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    line-height: 1.6;
+    orphans: 3; widows: 3;
+  }
+  #main {
+    max-width: none; margin: 0; padding: 18mm 22mm 20mm;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  }
+  .prose { max-width: none; margin: 0; }
+  .prose h2 { font-size: 16pt; margin: 20pt 0 9pt; }
+  .prose h3 { font-size: 12.5pt; margin: 14pt 0 6pt; }
+  .prose p, .prose ul, .prose ol { margin-top: 6pt; margin-bottom: 8pt; }
+
+  /* 검은 카드를 그대로 찍으면 잉크를 다 씁니다. */
+  .hero {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1.5pt solid #000;
+    border-radius: 10pt;
+    padding: 16pt;
+    margin: 0 0 12pt;
+    page-break-after: avoid; break-after: avoid;
+  }
+  .hero .hero-title { font-size: 21pt; }
+  .hero .hero-title, .hero strong, .hero li, .hero h2, .hero h3 { color: #000 !important; }
+  .hero .eyebrow { color: #666 !important; }
+  .hero .readtime { color: #666 !important; }
+  .hero code { background: #eee !important; color: #000 !important; }
+
+  .code { background: #f4f4f4 !important; border: 1pt solid #ccc; }
+  .code code { color: #000 !important; }
+  .copy-btn { display: none !important; }
+
+  .prose p, .prose li, .prompt-body, .table-wrap td { color: #222 !important; }
+  .callout, .prompt, .toc, .table-wrap, .task-list-item {
+    background: #fff !important;
+    border-color: #999 !important;
+  }
+  mark { color: #000 !important; background: #f0e6c8 !important; }
+
+  .hero, .prose img, .task-list-item, tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .callout, .prompt, .table-wrap, .code { break-inside: auto; overflow: visible; }
+  .prompt, .callout { padding: 10pt 12pt; margin: 10pt 0; }
+  .prompt-body { padding: 0; font-size: 10.5pt; line-height: 1.55; }
+  .prompt-head { display: block; page-break-after: avoid; break-after: avoid; }
+  .prompt-body { orphans: 3; widows: 3; }
+  .table-wrap { overflow: visible; }
+  .day:last-of-type .table-wrap { page-break-inside: avoid; break-inside: avoid; }
+  .contains-task-list { page-break-inside: avoid; break-inside: avoid; }
+  .table-wrap table { width: 100%; font-size: 9.5pt; }
+  thead { display: table-header-group; }
+  .code pre, .code code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .prose img { display: block; max-width: 100%; max-height: 110mm; width: auto; height: auto; object-fit: contain; margin: 8pt auto; }
+  .print-compact .prose p, .print-compact .prose ul, .print-compact .prose ol { margin-top: 4pt; margin-bottom: 5pt; }
+  .print-compact .prompt, .print-compact .callout { padding: 8pt 10pt; margin: 7pt 0; }
+  .print-compact .prose h2 { margin-top: 14pt; }
+  .print-compact .prose li { margin-bottom: 4pt; }
+  .print-compact .task-list-item { padding: 5pt 8pt; }
+  .print-compact .hero { padding: 12pt; margin-bottom: 10pt; }
+  .print-compact .hero .hero-title { margin-bottom: 10pt; }
+  .print-compact .table-wrap th, .print-compact .table-wrap td { padding: 6pt 8pt; }
+  .print-compact .prose img { max-height: 70mm; }
+  .prose h2, .prose h3 { page-break-after: avoid; break-after: avoid; }
+  a { text-decoration: none; color: #000 !important; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="progress" aria-hidden="true"><i></i></div>
+
+<header class="topbar">
+  <p class="site-title">보험에서의 AI</p>
+  <div class="tabs-wrap">
+    <nav class="tabs" role="tablist" aria-label="목차">
+      <button class="pill is-active" type="button" role="tab"
+              id="tab-day-0" data-target="day-0"
+              aria-controls="day-0" aria-selected="true">
+        <span class="pill-text">시작</span>
+      </button>
+      <button class="pill" type="button" role="tab"
+              id="tab-day-1" data-target="day-1"
+              aria-controls="day-1" aria-selected="false">
+        <span class="pill-text">Ⅰ. 대화하는 법</span>
+      </button>
+      <button class="pill" type="button" role="tab"
+              id="tab-day-2" data-target="day-2"
+              aria-controls="day-2" aria-selected="false">
+        <span class="pill-text">Ⅱ. AI 환경</span>
+      </button>
+      <button class="pill" type="button" role="tab"
+              id="tab-day-3" data-target="day-3"
+              aria-controls="day-3" aria-selected="false">
+        <span class="pill-text">Ⅲ-1. 약관 검토</span>
+      </button>
+      <button class="pill" type="button" role="tab"
+              id="tab-day-4" data-target="day-4"
+              aria-controls="day-4" aria-selected="false">
+        <span class="pill-text">Ⅲ-2. 사례 검색</span>
+      </button>
+      <button class="pill" type="button" role="tab"
+              id="tab-day-5" data-target="day-5"
+              aria-controls="day-5" aria-selected="false">
+        <span class="pill-text">Ⅲ-3. 자문 의뢰서</span>
+      </button>
+      <button class="pill" type="button" role="tab"
+              id="tab-day-6" data-target="day-6"
+              aria-controls="day-6" aria-selected="false">
+        <span class="pill-text">Ⅳ. 정리</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  
+  <section class="print-cover cover-editorial" aria-label="인쇄용 표지">
+    
+    
+    <p class="cover-brand">현대해상 · 장기손사 인보험 실무 과정</p>
+    <div class="cover-heading">
+      <p class="cover-label">실습 워크북</p>
+      <h1 class="cover-title">보험에서의 AI</h1>
+      <p class="cover-audience">질문하고, 확인하고,
+판단은 내가 합니다</p>
+      <p class="cover-subtitle">사망·후유장해 보험금 청구 심사 실무자를 위한
+생성형 AI 실무 활용</p>
+      <p class="cover-topics">AI와 대화하기 → AI 환경 만들기 → 약관 검토 · 사례 검색 · 자문 의뢰서</p>
+    </div>
+    <div class="cover-bottom">
+      <div class="cover-access">
+        
+        
+        <p class="cover-note">휴대폰으로 웹교재를 열고 프롬프트를 복사해 사용하세요. 실습 사례는 모두 가상 사례입니다.</p>
+      </div>
+      <div class="cover-instructor">
+        
+        <p>2026. 11. 10. 화요일</p>
+        
+        <p>14:00–16:00 · 하이비전센터(곤지암)</p>
+        
+        <p>정찬훈</p>
+        
+        <p>Money&amp;Works</p>
+        
+        
+        
+        
+        
+      </div>
+    </div>
+    
+  </section>
+  
+  <section class="day print-compact" id="day-0" role="tabpanel" aria-labelledby="tab-day-0"
+           data-tab="시작" data-minutes="2">
+    <article class="prose">
+<section class="hero"><p class="eyebrow">START · 5 MIN<span class="readtime">약 2분</span></p><h1 class="hero-title">휴대폰 하나로 질문하고, 확인하고, 판단합니다</h1>
+<p><mark>AI는 심사를 대신하지 않습니다. 내가 놓친 질문을 찾고, 근거를 빨리 모으고, 문서 초안을 만드는 파트너입니다.</mark></p>
+<p>현대해상 장기손사 인보험 실무 과정 · 사망·후유장해 보험금 청구 심사 실무자</p>
+</section>
+
+<nav class="toc"><p class="toc-label">이 장의 목차</p><ol><li class="toc-l2"><a href="#day-0-s1">오늘 쓰는 도구 두 가지</a></li><li class="toc-l2"><a href="#day-0-s2">오늘의 흐름</a></li><li class="toc-l2"><a href="#day-0-s3">오늘의 가상 사례 두 건</a></li><li class="toc-l2"><a href="#day-0-s4">웹과 종이로 사용하는 방법</a></li></ol></nav>
+
+<p><a href="hi-claims-ai-workbook.pdf" download style="display:inline-block;max-width:100%;box-sizing:border-box;padding:12px 18px;border:2px solid currentColor;border-radius:12px;font-weight:700;text-decoration:none;">교재 PDF 내려받기 ↓</a></p>
+<h2 id="day-0-s1">오늘 쓰는 도구 두 가지</h2>
+<div class="table-wrap"><table><thead>
+<tr>
+<th>도구</th>
+<th>이럴 때 씁니다</th>
+<th>준비</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ChatGPT</strong></td>
+<td>상황을 설명하고 질문받기, 사례 검색, 의뢰서 같은 문서 초안 만들기</td>
+<td>무료 계정 로그인</td>
+</tr>
+<tr>
+<td><strong>Gemini Notebook</strong><br>(구 NotebookLM)</td>
+<td>내가 올린 약관·자료 <strong>안에서만</strong> 답을 찾고 근거 위치 보여주기</td>
+<td>구글 계정 로그인</td>
+</tr>
+</tbody>
+</table></div><p>NotebookLM은 2026년 7월부터 <strong>Gemini Notebook</strong>으로 이름이 바뀌었습니다. 앱스토어에서 둘 중 어느 이름으로 검색해도 됩니다.</p>
+<h2 id="day-0-s2">오늘의 흐름</h2>
+<div class="table-wrap"><table><thead>
+<tr>
+<th>순서</th>
+<th>함께 할 일</th>
+<th style="text-align:right">시간</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>시작</td>
+<td>로그인 확인, 오늘의 가상 사례 소개</td>
+<td style="text-align:right">5분</td>
+</tr>
+<tr>
+<td>Ⅰ. AI와 대화하는 법</td>
+<td>말로, 길게, 파트너처럼, 질문받기, 검증하기</td>
+<td style="text-align:right">25분</td>
+</tr>
+<tr>
+<td>Ⅱ. 나에게 맞는 AI 환경</td>
+<td>도구 고르기, 플러그인·스킬·프로젝트·바이브코딩, 보안 수칙</td>
+<td style="text-align:right">25분</td>
+</tr>
+<tr>
+<td>휴식</td>
+<td>화면에서 잠시 벗어나기</td>
+<td style="text-align:right">10분</td>
+</tr>
+<tr>
+<td>Ⅲ-1. 약관 검토</td>
+<td>Gemini Notebook으로 장해분류표 대조</td>
+<td style="text-align:right">15분</td>
+</tr>
+<tr>
+<td>Ⅲ-2. 관련 사례 검색</td>
+<td>ChatGPT로 판례·분쟁조정 사례 찾고 원문 확인</td>
+<td style="text-align:right">15분</td>
+</tr>
+<tr>
+<td>Ⅲ-3. 자문 의뢰서</td>
+<td>애매한 사례로 자문 의뢰서 초안 만들기</td>
+<td style="text-align:right">15분</td>
+</tr>
+<tr>
+<td>Ⅳ. 정리</td>
+<td>나만의 질문 모음, 체크리스트</td>
+<td style="text-align:right">10분</td>
+</tr>
+</tbody>
+</table></div><p><strong>총 120분, 휴식 포함입니다.</strong></p>
+<h2 id="day-0-s3">오늘의 가상 사례 두 건</h2>
+<p>실습은 아래 두 사례로 진행합니다. <strong>모두 연습용으로 만든 가상 사례이며 실제 고객·사고와 관계가 없습니다.</strong></p>
+<p><strong>사례 A · 후유장해 (Ⅲ-1, Ⅲ-3에서 사용)</strong><br />
+피보험자 김OO(48세, 남)는 상해후유장해 담보에 가입되어 있습니다. 아파트 계단에서 미끄러져 넘어진 뒤 제1요추 압박골절 진단을 받고 보존적 치료(보조기 착용)를 받았습니다. 수술(유합·고정술)은 하지 않았습니다. 사고 7개월 뒤 발급된 후유장해진단서에는 &quot;제1요추 압박률 42%&quot;로 적혀 있습니다. 한편 회사 측 영상 재판독 소견은 &quot;압박률 약 33%, 인접 척추에 퇴행성 변화 동반&quot;입니다.</p>
+<p><strong>사례 B · 사망 (Ⅲ-2에서 사용)</strong><br />
+피보험자 이OO(67세, 남)는 상해사망 담보에 가입되어 있습니다. 대중목욕탕 온탕 안에서 의식을 잃은 채 발견되어 병원으로 옮겨졌으나 사망했습니다. 사체검안서의 직접사인은 &quot;익사 추정&quot;이며 부검은 하지 않았습니다. 10년 전부터 고혈압 약을 복용해 왔습니다. 상해로 인한 사망인지, 질병으로 인한 사망인지가 쟁점입니다.</p>
+<h2 id="day-0-s4">웹과 종이로 사용하는 방법</h2>
+<ul class="contains-task-list">
+<li>
+<p>위쪽 탭으로 이동하고, 프롬프트의 <strong>복사</strong> 버튼을 눌러 AI 앱에 붙여넣습니다.</p>
+</li>
+<li>
+<p><strong>[대괄호] 부분은 본인 내용으로 바꿉니다.</strong> 모르는 내용은 &quot;미정&quot;이라고 적습니다.</p>
+</li>
+<li>
+<p>위의 <strong>교재 PDF 내려받기</strong> 버튼으로 전체 교재를 저장할 수 있습니다.</p>
+</li>
+<li>
+<p>체크 표시는 지금 쓰는 브라우저에만 저장됩니다.</p>
+</li>
+<li class="task-list-item enabled">
+<p><input class="task-list-item-checkbox"  type="checkbox"> ChatGPT 앱에 로그인했습니다.</p>
+</li>
+<li class="task-list-item enabled">
+<p><input class="task-list-item-checkbox"  type="checkbox"> Gemini Notebook(구 NotebookLM) 앱 또는 웹에 로그인했습니다.</p>
+</li>
+<li class="task-list-item enabled">
+<p><input class="task-list-item-checkbox"  type="checkbox"> 휴대폰 키보드의 마이크(음성 입력) 버튼 위치를 확인했습니다.</p>
+</li>
+</ul>
+
+    </article>
+  </section>
+  <section class="day print-break print-compact" id="day-1" role="tabpanel" aria-labelledby="tab-day-1"
+           data-tab="Ⅰ. 대화하는 법" data-minutes="3" hidden>
+    <article class="prose">
+<section class="hero"><p class="eyebrow">Ⅰ · 25 MIN<span class="readtime">약 3분</span></p><h1 class="hero-title">말로, 길게, 파트너처럼 대하고, 질문을 받습니다</h1>
+<p><mark>같은 AI인데 사람마다 답이 다른 이유는 도구가 아니라 내가 건네는 맥락이 다르기 때문입니다.</mark></p>
+</section>
+
+<nav class="toc"><p class="toc-label">이 장의 목차</p><ol><li class="toc-l2"><a href="#day-1-s1">먼저 골라보세요</a></li><li class="toc-l2"><a href="#day-1-s2">AI와 대화하는 다섯 가지 원칙</a></li><li class="toc-l2"><a href="#day-1-s3">실습 1 · 60초 동안 말로 설명하고 질문받기</a></li><li class="toc-l2"><a href="#day-1-s4">실습 2 · 정리하게 하고, 그 정리를 검증하기</a></li></ol></nav>
+
+<h2 id="day-1-s1">먼저 골라보세요</h2>
+<p><strong>질문 1. 심사 중 막힌 건을 AI에게 물을 때, 어느 쪽이 더 쓸 만한 답을 받을까요?</strong></p>
+<p>A. &quot;척추 압박골절 장해 몇 %야?&quot;</p>
+<p>B. &quot;나는 손해보험사에서 후유장해 보험금 청구를 심사하고 있어. 피보험자는 요추 압박골절로 수술 없이 치료받았고, 진단서 압박률과 회사 재판독 압박률이 달라. 어떤 기준으로 비교해야 하는지 같이 정리해줘.&quot;</p>
+<p><strong>질문 2. 처음부터 모든 정보를 다 말하기 어렵다면?</strong></p>
+<p>A. 일단 짧게 묻고 답이 이상하면 &quot;다시&quot;, &quot;더 자세히&quot;를 반복한다.</p>
+<p>B. &quot;판단하기 전에 필요한 정보를 나에게 하나씩 질문해줘&quot;라고 먼저 부탁한다.</p>
+<details><summary>함께 확인할 답</summary><p>두 질문 모두 B입니다. AI는 내가 말하지 않은 상황을 모릅니다. 모르는 부분은 그럴듯하게 채워 넣습니다. 상황을 충분히 말하거나, 무엇이 필요한지 AI가 먼저 묻게 하면 답의 품질이 달라집니다.</p></details>
+<h2 id="day-1-s2">AI와 대화하는 다섯 가지 원칙</h2>
+<div class="table-wrap"><table><thead>
+<tr>
+<th>원칙</th>
+<th>이렇게 합니다</th>
+<th>심사 업무에서는</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1. 글보다는 말</strong></td>
+<td>키보드 마이크로 말하듯 설명합니다. 타이핑할 때보다 맥락이 훨씬 자연스럽게 나옵니다.</td>
+<td>동료에게 사건을 설명하듯 말합니다.</td>
+</tr>
+<tr>
+<td><strong>2. 짧게보다는 길게</strong></td>
+<td>배경·조건·원하는 결과·걱정되는 점까지 충분히 전달합니다.</td>
+<td>담보, 사고 경위, 진단 내용, 막힌 지점을 함께 말합니다.</td>
+</tr>
+<tr>
+<td><strong>3. 파트너로 대우하기</strong></td>
+<td>역할을 주고(&quot;너는 ~야&quot;), 의견을 묻고, 함께 다듬습니다.</td>
+<td>&quot;보험금 심사 경험이 많은 선배처럼 검토해줘.&quot;</td>
+</tr>
+<tr>
+<td><strong>4. 질문받기</strong></td>
+<td>답하기 전에 나에게 먼저 질문하게 합니다.</td>
+<td>빠뜨린 확인 사항을 AI가 찾아줍니다.</td>
+</tr>
+<tr>
+<td><strong>5. 확인·검증하기</strong></td>
+<td>출처를 요구하고, 원문과 대조하고, 다르게 다시 묻습니다.</td>
+<td>약관·판례 번호는 반드시 원문으로 확인합니다.</td>
+</tr>
+</tbody>
+</table></div><h2 id="day-1-s3">실습 1 · 60초 동안 말로 설명하고 질문받기</h2>
+<p>ChatGPT 앱을 열고 <strong>키보드의 마이크 버튼</strong>을 눌러 아래 내용을 본인의 말로 읽습니다. 읽은 뒤 사례 A의 상황을 덧붙여 말합니다. 전송하기 전에 숫자(42%, 33%)와 용어가 바르게 입력됐는지 확인합니다.</p>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">심사 파트너에게 말로 설명하기</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">너는 손해보험사에서 장기보험 인보험 보험금 심사를 오래 해 온 선배 심사자야. 나와 함께 사건을 검토하는 파트너가 되어줘.
+나는 사망·후유장해 보험금 청구를 심사하는 실무자야. 지금 검토 중인 연습용 가상 사례가 있는데, 어디서부터 확인해야 할지 정리하고 싶어.
+사례는 이래. 48세 남성 피보험자가 계단에서 넘어져 제1요추 압박골절 진단을 받았고, 수술 없이 보조기 치료를 받았어. 사고 7개월 뒤 후유장해진단서에는 압박률 42%로 적혀 있는데, 회사 영상 재판독은 약 33%이고 인접 척추에 퇴행성 변화가 있다고 해.
+바로 결론을 내리지 말고, 판단에 필요한 정보를 나에게 한 번에 하나씩 질문해줘. 질문은 최대 5개까지만 해줘. 내가 &quot;정리해줘&quot;라고 하면 그때까지의 내용을 정리해줘.</pre></div>
+<p><strong>실습:</strong> AI의 질문에 2~3번 답합니다. 사례에 없는 내용은 &quot;가상 사례라 정보 없음&quot;이라고 답합니다.</p>
+<h2 id="day-1-s4">실습 2 · 정리하게 하고, 그 정리를 검증하기</h2>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">정리하고 확인하기</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">정리해줘. 지금까지 내가 말한 내용만 사용해줘.
+① 확인된 사실 ② 아직 모르는 것 ③ 판단에 필요한 추가 자료 ④ 쟁점으로 나눠줘.
+내가 말하지 않은 사실이나 숫자는 추가하지 마. 약관이나 판례를 언급했다면, 그 내용이 어디에 근거한 것인지 밝히고 확인하지 못했으면 &quot;확인 필요&quot;라고 표시해줘.</pre></div>
+<p>AI의 정리를 읽고 아래를 확인합니다.</p>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 내가 말하지 않은 사실(나이, 날짜, 병명 등)이 끼어들지 않았습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 약관·판례·수치에 &quot;확인 필요&quot; 표시가 있거나 출처가 있습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 쟁점이 내 생각과 맞는지 확인하고, 다르면 바로잡았습니다.</li>
+</ul>
+<aside class="callout"><p class="callout-title">🔎 AI 답변을 검증하는 세 가지 질문</p>
+<p><strong>① 근거가 뭐야?</strong> 출처·조항·사건번호를 요구합니다. <strong>② 원문과 맞아?</strong> 약관·판례는 원문을 직접 엽니다. <strong>③ 반대로 보면?</strong> &quot;보험금을 지급해야 한다는 입장에서 다시 검토해줘&quot;처럼 반대 관점으로 다시 묻습니다.</p>
+</aside>
+<p><strong>막히면:</strong> 음성 입력이 안 되면 키보드로 입력합니다. AI가 바로 답을 늘어놓으면 &quot;답하지 말고 질문 하나만 해줘&quot;라고 다시 요청합니다.</p>
+
+    </article>
+  </section>
+  <section class="day print-break print-compact" id="day-2" role="tabpanel" aria-labelledby="tab-day-2"
+           data-tab="Ⅱ. AI 환경" data-minutes="4" hidden>
+    <article class="prose">
+<section class="hero"><p class="eyebrow">Ⅱ · 25 MIN<span class="readtime">약 4분</span></p><h1 class="hero-title">나에게 맞는 AI 환경을 고르고 설정합니다</h1>
+<p><mark>도구를 많이 아는 것보다, 일의 종류에 맞는 도구를 고르고 내 업무에 맞게 설정해 두는 것이 중요합니다.</mark></p>
+</section>
+
+<nav class="toc"><p class="toc-label">이 장의 목차</p><ol><li class="toc-l2"><a href="#day-2-s1">나에게 맞는 AI</a></li><li class="toc-l2"><a href="#day-2-s2">상황에 맞는 AI</a></li><li class="toc-l2"><a href="#day-2-s3">플러그인 · 4. 스킬 · 5. 프로젝트 · 6. 바이브코딩</a></li><li class="toc-l2"><a href="#day-2-s4">보험 업무 보안 수칙</a></li><li class="toc-l2"><a href="#day-2-s5">실습 · '장기손사 심사 보조' 프로젝트 만들기</a></li></ol></nav>
+
+<h2 id="day-2-s1">1. 나에게 맞는 AI</h2>
+<p>먼저 &quot;나는 AI를 어디에서, 어떻게 쓰는가&quot;를 정합니다.</p>
+<ul>
+<li><strong>어디서:</strong> 이동 중·현장에서는 휴대폰 앱, 문서 작업은 PC 웹.</li>
+<li><strong>어떻게:</strong> 말로 설명하기 편하면 음성 입력, 자료를 붙여넣어 묻는 편이면 PC.</li>
+<li><strong>무엇을:</strong> 오늘처럼 무료 계정으로 시작하고, 자주 쓰는 일이 생기면 그때 기능을 넓힙니다.</li>
+</ul>
+<h2 id="day-2-s2">2. 상황에 맞는 AI</h2>
+<div class="table-wrap"><table><thead>
+<tr>
+<th>이런 상황이라면</th>
+<th>이 도구를</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>사건을 설명하고 쟁점을 정리하고 싶다</td>
+<td><strong>ChatGPT</strong></td>
+<td>대화하며 질문받고 정리하는 데 강합니다.</td>
+</tr>
+<tr>
+<td>판례·사례를 넓게 찾아보고 싶다</td>
+<td><strong>ChatGPT 검색</strong></td>
+<td>웹을 검색해 출처 링크와 함께 답합니다.</td>
+</tr>
+<tr>
+<td>약관·지침 <strong>원문 안에서만</strong> 답을 찾고 싶다</td>
+<td><strong>Gemini Notebook</strong></td>
+<td>내가 올린 자료만 근거로 답하고, 근거 위치를 보여줍니다.</td>
+</tr>
+<tr>
+<td>의뢰서·안내문 같은 문서 초안이 필요하다</td>
+<td><strong>ChatGPT 프로젝트</strong></td>
+<td>저장해 둔 지침에 따라 같은 형식으로 반복 작성합니다.</td>
+</tr>
+</tbody>
+</table></div><aside class="callout"><p class="callout-title">💡 기억할 한 가지</p>
+<p>ChatGPT는 <strong>넓게 찾고 만드는</strong> 도구, Gemini Notebook은 <strong>내 자료 안에서 정확히 찾는</strong> 도구입니다. 약관 해석처럼 원문이 중요한 일은 Gemini Notebook으로 먼저 확인합니다.</p>
+</aside>
+<h2 id="day-2-s3">3. 플러그인 · 4. 스킬 · 5. 프로젝트 · 6. 바이브코딩</h2>
+<div class="table-wrap"><table><thead>
+<tr>
+<th>기능</th>
+<th>한 줄 설명</th>
+<th>오늘은</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>플러그인(앱 연결)</strong></td>
+<td>AI를 외부 서비스(판례 검색, 문서함, 일정 등)와 연결해 할 수 있는 일을 넓힙니다.</td>
+<td><strong>Ⅲ-2에서 직접 연결합니다</strong></td>
+</tr>
+<tr>
+<td><strong>스킬</strong></td>
+<td>반복하는 업무 절차를 AI에 저장해 두고 필요할 때 꺼내 씁니다.</td>
+<td>강사 화면으로 봅니다</td>
+</tr>
+<tr>
+<td><strong>프로젝트</strong></td>
+<td>자료와 지침을 한곳에 모아 업무별 작업 공간을 만듭니다.</td>
+<td><strong>직접 만듭니다</strong></td>
+</tr>
+<tr>
+<td><strong>바이브코딩</strong></td>
+<td>코딩을 몰라도 말로 설명해서 나만의 업무 도구(체크리스트, 계산표 등)를 만듭니다.</td>
+<td>강사 화면으로 봅니다</td>
+</tr>
+</tbody>
+</table></div><p>ChatGPT의 <strong>스킬</strong>은 현재 기업·교육기관용 요금제에서 제공되어 오늘은 강사 화면으로 살펴봅니다. <strong>플러그인</strong>은 무료 계정에서도 웹(<a href="http://chatgpt.com">chatgpt.com</a>)에서 연결할 수 있어서, Ⅲ-2에서 판례 검색 플러그인을 직접 연결합니다. <strong>프로젝트</strong>는 무료 계정에서도 쓸 수 있습니다(프로젝트당 파일 5개까지).</p>
+<p><strong>바이브코딩 시연 예시:</strong> &quot;후유장해 청구 서류 체크리스트를 휴대폰에서 체크할 수 있는 웹페이지 한 장으로 만들어줘&quot;라고 말로 요청하면, AI가 바로 쓸 수 있는 화면을 만들어 줍니다.</p>
+<h2 id="day-2-s4">7. 보험 업무 보안 수칙</h2>
+<p>오늘 쓰는 도구는 회사가 관리하는 사내 AI가 아니라 <strong>일반 외부 AI 서비스</strong>입니다. 아래 원칙을 지킵니다.</p>
+<aside class="callout"><p class="callout-title">🔒 반드시 지킬 세 가지</p>
+<p><strong>① 넣지 않습니다:</strong> 고객 이름, 주민등록번호, 연락처, 증권번호, 사고 접수번호, 진단서·의무기록 원본, 사내 문서는 입력하지 않습니다.<br />
+<strong>② 바꿔서 씁니다:</strong> 실제 업무를 연습할 때는 &quot;48세 남성, 요추 압박골절&quot;처럼 사람을 알아볼 수 없게 바꾸고, 날짜·지역·병원명은 지웁니다.<br />
+<strong>③ 판단은 내가 합니다:</strong> AI의 답은 초안과 참고 의견입니다. 지급·부지급 판단과 고객 안내는 회사 기준과 내 확인으로 결정합니다.</p>
+</aside>
+<h2 id="day-2-s5">실습 · '장기손사 심사 보조' 프로젝트 만들기</h2>
+<ol>
+<li>ChatGPT 앱에서 메뉴(☰)를 열고 <strong>프로젝트 → 새 프로젝트</strong>를 누릅니다.</li>
+<li>이름을 <strong>장기손사 심사 보조</strong>로 정합니다.</li>
+<li>프로젝트 설정의 <strong>지침</strong> 칸(Instructions)에 아래 내용을 붙여넣고 저장합니다.</li>
+<li>프로젝트 안에서 <strong>새 채팅</strong>을 열고 &quot;지침을 읽고 네 역할을 한 문장으로 말해줘&quot;라고 입력해 지침이 적용됐는지 확인합니다.</li>
+</ol>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">프로젝트 지침 · 장기손사 심사 보조</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">너는 손해보험사 장기보험 인보험(사망·후유장해) 보험금 심사를 돕는 보조자야.
+1. 답하기 전에 판단에 필요한 정보가 부족하면 먼저 한 번에 하나씩 질문해.
+2. 답은 ① 확인된 사실 ② 쟁점 ③ 확인할 자료 ④ 의견 순서로 정리해.
+3. 약관 조항, 판례, 분쟁조정 사례를 말할 때는 출처를 밝히고, 직접 확인하지 못한 것은 &quot;확인 필요&quot;라고 표시해. 사건번호나 조항을 지어내지 마.
+4. 지급·부지급을 단정하지 말고, 판단에 필요한 근거와 반대 관점을 함께 보여줘.
+5. 내가 개인정보(이름, 주민등록번호, 연락처, 증권번호 등)를 입력하면 저장하거나 반복하지 말고 지우라고 알려줘.
+6. 쉬운 우리말로, 실무자가 바로 쓸 수 있게 짧은 문단과 표로 답해.</pre></div>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 프로젝트를 만들고 지침을 저장했습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 새 채팅에서 지침이 적용된 것을 확인했습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 보안 수칙 세 가지를 확인했습니다.</li>
+</ul>
+<p><strong>막히면:</strong> 휴대폰에서 프로젝트 메뉴가 보이지 않으면 앱을 최신 버전으로 업데이트합니다. 그래도 안 되면 일반 채팅의 첫 메시지로 위 지침을 붙여넣고 &quot;이 대화에서는 이 지침대로 일해줘&quot;라고 요청합니다.</p>
+
+    </article>
+  </section>
+  <section class="day print-break print-compact" id="day-3" role="tabpanel" aria-labelledby="tab-day-3"
+           data-tab="Ⅲ-1. 약관 검토" data-minutes="4" hidden>
+    <article class="prose">
+<section class="hero"><p class="eyebrow">Ⅲ-1 · 15 MIN<span class="readtime">약 4분</span></p><h1 class="hero-title">약관 원문을 올리고, 원문 안에서만 답하게 합니다</h1>
+<p><mark>약관 해석은 AI의 기억이 아니라 원문에 근거해야 합니다. 원문을 직접 올리고, 답의 근거 위치를 확인합니다.</mark></p>
+</section>
+
+<nav class="toc"><p class="toc-label">이 장의 목차</p><ol><li class="toc-l2"><a href="#day-3-s1">왜 Gemini Notebook인가요?</a></li><li class="toc-l2"><a href="#day-3-s2">실습 · 사례 A를 장해분류표와 대조하기</a></li><li class="toc-l2"><a href="#day-3-s3">답을 확인합니다</a></li></ol></nav>
+
+<h2 id="day-3-s1">왜 Gemini Notebook인가요?</h2>
+<p>ChatGPT에게 &quot;척추 장해 지급률&quot;을 물으면 예전 약관이나 다른 회사 기준을 섞어 답할 수 있습니다. Gemini Notebook은 <strong>내가 올린 자료만</strong> 근거로 답하고, 답 옆에 근거가 된 원문 위치(번호)를 표시합니다. 번호를 누르면 원문의 해당 부분이 열립니다.</p>
+<h2 id="day-3-s2">실습 · 사례 A를 장해분류표와 대조하기</h2>
+<ol>
+<li>Gemini Notebook 앱(또는 웹)에서 <strong>새 노트북</strong>을 만듭니다.</li>
+<li><strong>소스 추가 → 복사한 텍스트</strong>를 고르고, 아래 <strong>장해분류표 발췌</strong>를 복사해 붙여넣습니다.</li>
+<li>노트북 채팅창에 아래 질문 프롬프트를 붙여넣습니다.</li>
+<li>답의 근거 번호를 눌러 원문과 맞는지 확인합니다.</li>
+</ol>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">소스로 올릴 원문 · 장해분류표 척추(등뼈)의 장해 발췌</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">[연습용 발췌] 질병·상해보험 표준약관 장해분류표 중 6. 척추(등뼈)의 장해 (공개된 단체상해보험 약관에서 발췌, 일부 생략)
+
+가. 장해의 분류 (지급률)
+1) 척추(등뼈)에 심한 운동장해를 남긴 때 40%
+2) 척추(등뼈)에 뚜렷한 운동장해를 남긴 때 30%
+3) 척추(등뼈)에 약간의 운동장해를 남긴 때 10%
+4) 척추(등뼈)에 심한 기형을 남긴 때 50%
+5) 척추(등뼈)에 뚜렷한 기형을 남긴 때 30%
+6) 척추(등뼈)에 약간의 기형을 남긴 때 15%
+7) 추간판탈출증으로 인한 심한 신경 장해 20%
+8) 추간판탈출증으로 인한 뚜렷한 신경 장해 15%
+9) 추간판탈출증으로 인한 약간의 신경 장해 10%
+
+나. 장해판정기준 (일부)
+- 척추(등뼈)의 기형장해는 척추체(척추뼈 몸통)의 압박률 또는 척추체의 만곡 정도에 따라 평가한다.
+- 척추체의 압박률은 인접 상·하부 정상 척추체의 전방 높이의 평균에 대한 골절된 척추체 전방 높이의 감소비를 압박률로 정한다.
+- 척추(등뼈)의 장해는 퇴행성 기왕증 병변과 사고가 그 증상을 악화시킨 부분만큼, 즉 이 사고와의 관여도를 산정하여 평가한다.
+- 운동장해는 골절 또는 탈구로 척추체를 유합(아물어 붙음) 또는 고정한 상태를 기준으로 한다. 심한 운동장해는 4개 이상, 뚜렷한 운동장해는 3개, 약간의 운동장해는 2개의 척추체를 유합 또는 고정한 상태를 말한다(상위 경추 관련 기준은 생략).
+- 심한 기형: 척추체 한 개의 압박률이 60% 이상인 경우 또는 한 운동단위 내에 두 개 이상 척추체의 압박골절로 각 압박률의 합이 90% 이상일 때 (만곡 기준 생략)
+- 뚜렷한 기형: 척추체 한 개의 압박률이 40% 이상인 경우 또는 한 운동단위 내에 두 개 이상 척추체의 압박골절로 각 압박률의 합이 60% 이상일 때 (만곡 기준 생략)
+- 약간의 기형: 척추체 한 개의 압박률이 20% 이상인 경우 또는 한 운동단위 내에 두 개 이상 척추체의 압박골절로 각 압박률의 합이 40% 이상일 때 (만곡 기준 생략)</pre></div>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">Gemini Notebook에 묻기 · 사례 A 검토</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">올린 장해분류표 발췌 자료만 근거로 답해줘. 자료에 없는 내용은 &quot;자료에 없음&quot;이라고 말해줘.
+연습용 가상 사례야. 48세 남성이 계단에서 넘어져 제1요추 압박골절을 입었고 수술(유합·고정술) 없이 보조기 치료를 받았어. 후유장해진단서의 압박률은 42%, 회사 영상 재판독 압박률은 약 33%이고 인접 척추에 퇴행성 변화가 있다는 소견이야.
+1. 운동장해 항목에 해당할 가능성이 있는지, 근거 조항과 함께 알려줘.
+2. 압박률 42%일 때와 33%일 때 각각 어느 기형장해 항목과 지급률에 해당하는지 표로 비교해줘.
+3. 퇴행성 변화 소견이 평가에 어떤 영향을 주는지 자료의 문구로 알려줘.
+4. 이 자료만으로는 판단할 수 없어서 추가로 확인해야 할 것을 정리해줘.</pre></div>
+<h2 id="day-3-s3">답을 확인합니다</h2>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 답 옆의 근거 번호를 눌러 원문 문장을 직접 확인했습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 42%는 '뚜렷한 기형'(40% 이상), 33%는 '약간의 기형'(20% 이상) 기준과 맞는지 내가 직접 대조했습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> '관여도' 문구가 원문에 있는지 확인했습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 자료에 없는 내용(예: 회사 내부 기준)을 AI가 지어내지 않았습니다.</li>
+</ul>
+<aside class="callout"><p class="callout-title">🔎 생각해 볼 질문</p>
+<p>압박률 측정값이 다르면 지급률 판단이 어떻게 달라질까요? 이런 <strong>애매한 지점</strong>이 Ⅲ-3에서 전문가 자문을 요청할 대목입니다. 쟁점을 한 줄로 메모해 둡니다.</p>
+</aside>
+<p><strong>막히면:</strong> 앱에서 '복사한 텍스트' 메뉴가 보이지 않으면 휴대폰 브라우저에서 Gemini Notebook 웹사이트를 엽니다. 그래도 안 되면 ChatGPT에 발췌문과 질문을 함께 붙여넣고 &quot;이 발췌문 밖의 지식은 쓰지 마&quot;라고 요청한 뒤, 답을 발췌문과 직접 대조합니다.</p>
+<p><strong>실무에서는:</strong> 실제 심사에서는 해당 계약의 <strong>가입 시점 약관 원문</strong>을 소스로 올립니다. 공개된 약관 PDF 파일이나 웹페이지 주소를 소스로 추가할 수 있습니다. 고객 서류는 올리지 않습니다.</p>
+
+    </article>
+  </section>
+  <section class="day print-break print-compact" id="day-4" role="tabpanel" aria-labelledby="tab-day-4"
+           data-tab="Ⅲ-2. 사례 검색" data-minutes="4" hidden>
+    <article class="prose">
+<section class="hero"><p class="eyebrow">Ⅲ-2 · 15 MIN<span class="readtime">약 4분</span></p><h1 class="hero-title">비슷한 판례와 분쟁조정 사례를 찾고, 원문으로 확인합니다</h1>
+<p><mark>AI는 판례를 빨리 찾아주지만, 없는 사건번호를 만들어내기도 합니다. 찾는 일은 AI에게, 확인하는 일은 내가 합니다.</mark></p>
+</section>
+
+<nav class="toc"><p class="toc-label">이 장의 목차</p><ol><li class="toc-l2"><a href="#day-4-s1">사례 B를 다시 읽어 봅니다</a></li><li class="toc-l2"><a href="#day-4-s2">준비 · 판례 검색 플러그인 연결하기</a></li><li class="toc-l2"><a href="#day-4-s3">실습 · 쟁점부터 정하고 검색하기</a></li><li class="toc-l2"><a href="#day-4-s4">원문으로 확인합니다</a></li></ol></nav>
+
+<h2 id="day-4-s1">사례 B를 다시 읽어 봅니다</h2>
+<p>67세 남성 피보험자가 대중목욕탕 온탕 안에서 의식을 잃은 채 발견되어 사망했습니다. 사체검안서의 직접사인은 &quot;익사 추정&quot;, 부검은 하지 않았고, 10년간 고혈압 약을 복용했습니다. <strong>상해사망인지 질병사망인지</strong>가 쟁점입니다. (연습용 가상 사례)</p>
+<h2 id="day-4-s2">준비 · 판례 검색 플러그인 연결하기</h2>
+<p>ChatGPT에 <strong>한국 법 MCP</strong> 플러그인을 연결하면, ChatGPT가 국가법령정보센터의 법령·판례 자료를 직접 찾아서 답합니다. 무료 계정에서도 연결할 수 있습니다. 연결은 웹(<a href="http://chatgpt.com">chatgpt.com</a>)에서 합니다.</p>
+<ol>
+<li>왼쪽 메뉴에서 <strong>플러그인</strong>을 누릅니다.</li>
+<li>오른쪽 위 <strong>추가 → 사용자 지정 MCP 서버 추가</strong>를 누릅니다.</li>
+<li><strong>이름</strong>은 자유롭게 씁니다. (예: 한국 법 MCP)</li>
+<li><strong>연결</strong>은 서버 URL을 고르고 아래 주소를 붙여넣습니다.</li>
+<li><strong>인증</strong>은 <strong>인증 없음</strong>을 고릅니다.</li>
+<li><strong>이해했으며 계속 진행하겠습니다</strong>에 체크하고 <strong>플러그인으로 생성</strong>을 누릅니다.</li>
+<li>연결 안내 창이 뜨면 <strong>한국 법 MCP 연결</strong>을 누릅니다.</li>
+</ol>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">연결 주소 · 서버 URL</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">https://mcp.gomdori.app/law</pre></div>
+<aside class="callout"><p class="callout-title">⚠️ 연결 전에 알아둘 것</p>
+<p>이 플러그인은 법제처의 공개 자료를 가져다 쓰도록 <strong>개인 개발자가 공개한 도구</strong>입니다. 법제처의 공식 서비스가 아닙니다. 그래서 <strong>연습용 가상 사례에만</strong> 쓰고, 판단이 필요한 내용은 반드시 국가법령정보센터 원문으로 확인합니다. 더 쓰지 않을 때는 플러그인 화면에서 연결을 해제할 수 있습니다.</p>
+</aside>
+<h2 id="day-4-s3">실습 · 쟁점부터 정하고 검색하기</h2>
+<p>먼저 Ⅱ에서 만든 <strong>장기손사 심사 보조</strong> 프로젝트에서 새 채팅을 엽니다. 쟁점을 정리하게 한 뒤, 판례는 플러그인으로, 분쟁조정 사례는 웹 검색으로 찾습니다.</p>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">1단계 · 쟁점 정리</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">연습용 가상 사례야. 67세 남성 피보험자가 대중목욕탕 온탕 안에서 의식을 잃은 채 발견되어 사망했어. 사체검안서 직접사인은 &quot;익사 추정&quot;이고 부검은 하지 않았어. 10년 전부터 고혈압 약을 복용했어. 상해사망 담보 청구 건이야.
+검색하기 전에, 상해사망 해당 여부를 판단할 때 다투어지는 쟁점을 정리해줘. 각 쟁점마다 어떤 사실이나 자료가 있으면 판단이 달라지는지도 알려줘.</pre></div>
+<p>입력창에 @ 기호를 입력하고 목록에서 <strong>한국 법 MCP</strong>를 고른 뒤, 아래 프롬프트를 붙여넣습니다. 메시지 앞에 플러그인 이름이 붙으면 됩니다.</p>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">2단계 · 플러그인으로 판례 검색</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">한국 법 MCP로 위 쟁점과 비슷한 판례를 찾아줘. 검색어는 &quot;익사 상해&quot;처럼 두세 단어로 짧게 여러 번 바꿔 가며 검색해줘.
+각 판례마다 ① 법원과 사건번호 ② 선고일 ③ 사실관계 요약 ④ 결론(상해 인정 여부) ⑤ 판단 근거를 표로 정리하고, 사례 B와 사실관계가 다른 점도 한 줄씩 적어줘.
+플러그인 검색 결과에서 확인한 판례와 웹 검색 등 다른 곳에서 가져온 내용을 구분해서 표시해줘. 확인하지 못한 사건번호는 지어내지 마.</pre></div>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">3단계 · 웹 검색으로 분쟁조정 사례 찾기</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">이번에는 웹 검색을 사용해서 위 쟁점과 비슷한 금융감독원 분쟁조정 사례를 찾아줘.
+각 사례마다 ① 사례 제목 ② 공개일 ③ 사실관계 요약 ④ 결론 ⑤ 원문 링크를 표로 정리해줘. 원문 링크를 찾지 못한 사례는 표에 넣지 말고 &quot;확인 필요&quot; 목록에 따로 적어줘.</pre></div>
+<h2 id="day-4-s4">원문으로 확인합니다</h2>
+<p>플러그인을 써도 확인은 필요합니다. ChatGPT가 플러그인 결과에 웹 검색 결과나 자신의 설명을 섞어 답하기도 하기 때문입니다. AI가 준 표에서 사례 <strong>두 건</strong>을 골라 아래 공식 사이트에서 직접 찾아봅니다.</p>
+<div class="table-wrap"><table><thead>
+<tr>
+<th>확인할 것</th>
+<th>공식 사이트</th>
+<th>찾는 방법</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>대법원 판례</td>
+<td><strong>국가법령정보센터</strong> (<a href="http://law.go.kr">law.go.kr</a>)</td>
+<td>상단 '판례' 탭에서 사건번호 검색</td>
+</tr>
+<tr>
+<td>금감원 분쟁조정 사례</td>
+<td><strong>금융감독원</strong> (<a href="http://fss.or.kr">fss.or.kr</a>)</td>
+<td>금융소비자보호 → 분쟁조정사례</td>
+</tr>
+</tbody>
+</table></div><ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 사건번호가 실제로 존재했습니다. (없으면 표에 ✕ 표시)</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 선고일과 결론이 AI의 요약과 같았습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> AI의 요약에 원문에 없는 내용이 섞이지 않았습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 사례 B와 사실관계가 <strong>다른 점</strong>을 한 가지 이상 찾았습니다.</li>
+</ul>
+<aside class="callout"><p class="callout-title">🔎 판례를 읽을 때 기억할 것</p>
+<p>판례의 결론보다 <strong>어떤 사실 때문에 그런 결론이 났는지</strong>가 중요합니다. 사례 B와 사실관계가 다르면 같은 결론을 기대할 수 없습니다. AI에게 &quot;이 판례와 사례 B의 차이점을 정리해줘&quot;라고 이어서 물어봅니다.</p>
+</aside>
+<p><strong>막히면:</strong> 플러그인이 목록에 보이지 않거나 연결되지 않으면, 2단계 프롬프트의 첫 문장을 &quot;웹 검색을 사용해서 위 쟁점과 비슷한 대법원 판례를 찾아줘&quot;로 바꿔 진행합니다. 웹 검색이 되지 않으면 메시지 입력창의 <strong>+ 버튼 → 웹 검색</strong>을 켜고 다시 요청합니다. 무료 계정의 사용 한도에 걸리면 잠시 후 다시 시도하거나 옆 사람의 화면을 함께 봅니다.</p>
+
+    </article>
+  </section>
+  <section class="day print-break print-compact" id="day-5" role="tabpanel" aria-labelledby="tab-day-5"
+           data-tab="Ⅲ-3. 자문 의뢰서" data-minutes="2" hidden>
+    <article class="prose">
+<section class="hero"><p class="eyebrow">Ⅲ-3 · 15 MIN<span class="readtime">약 2분</span></p><h1 class="hero-title">애매한 사례는 쟁점을 정리해 전문가에게 묻습니다</h1>
+<p><mark>좋은 자문 답변은 좋은 질문에서 나옵니다. 사실관계와 쟁점을 정리하고, 전문가가 답할 수 있는 질문으로 바꿉니다.</mark></p>
+</section>
+
+<nav class="toc"><p class="toc-label">이 장의 목차</p><ol><li class="toc-l2"><a href="#day-5-s1">어떤 전문가에게 물을까요?</a></li><li class="toc-l2"><a href="#day-5-s2">의뢰서의 기본 구조</a></li><li class="toc-l2"><a href="#day-5-s3">실습 · 사례 A의 의료자문 의뢰서 초안 만들기</a></li><li class="toc-l2"><a href="#day-5-s4">초안을 점검합니다</a></li></ol></nav>
+
+<h2 id="day-5-s1">어떤 전문가에게 물을까요?</h2>
+<div class="table-wrap"><table><thead>
+<tr>
+<th>이런 쟁점이라면</th>
+<th>자문</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>장해 정도, 측정값, 사고와 장해의 인과관계, 기왕증 기여도</td>
+<td><strong>의료자문</strong></td>
+<td>압박률 측정값 차이, 퇴행성 변화의 관여 정도</td>
+</tr>
+<tr>
+<td>약관 해석, 면책 해당 여부, 고지의무, 판례 적용</td>
+<td><strong>법률자문</strong></td>
+<td>상해·질병 구분에 관한 판례 적용, 약관 문구 해석</td>
+</tr>
+</tbody>
+</table></div><p>자문 절차, 의뢰 양식과 고객 안내는 <strong>회사 기준을 따릅니다.</strong> AI는 의뢰서 초안을 정리하는 데만 씁니다.</p>
+<h2 id="day-5-s2">의뢰서의 기본 구조</h2>
+<ol>
+<li><strong>의뢰 목적:</strong> 무엇을 판단하기 위해 자문을 구하는가</li>
+<li><strong>사실관계:</strong> 확인된 사실만, 날짜 순서로 (추정·의견 제외)</li>
+<li><strong>제출 자료:</strong> 자문자가 검토할 자료 목록</li>
+<li><strong>쟁점:</strong> 판단이 갈리는 지점</li>
+<li><strong>질의사항:</strong> 전문가가 &quot;예/아니오&quot; 또는 수치로 답할 수 있는 구체적인 질문</li>
+</ol>
+<h2 id="day-5-s3">실습 · 사례 A의 의료자문 의뢰서 초안 만들기</h2>
+<p><strong>장기손사 심사 보조</strong> 프로젝트에서 새 채팅을 열고 아래 프롬프트를 붙여넣습니다. Ⅲ-1에서 메모한 쟁점을 [대괄호]에 넣습니다.</p>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">의료자문 의뢰서 초안 만들기</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">연습용 가상 사례로 의료자문 의뢰서 초안을 만들려고 해. 먼저 초안을 쓰는 데 필요한 정보가 더 있으면 나에게 한 번에 하나씩 최대 3개까지 질문해줘. 질문이 끝나면 초안을 써줘.
+
+사례: 48세 남성 피보험자, 상해후유장해 담보. 계단에서 넘어져 제1요추 압박골절. 수술(유합·고정술) 없이 보조기 치료. 사고 7개월 뒤 후유장해진단서 압박률 42%, 회사 영상 재판독 압박률 약 33%, 인접 척추 퇴행성 변화 소견.
+내가 정리한 쟁점: [Ⅲ-1에서 메모한 쟁점]
+
+초안은 ① 의뢰 목적 ② 사실관계(확인된 사실만) ③ 제출 자료 ④ 쟁점 ⑤ 질의사항 순서로 써줘.
+질의사항은 자문의가 수치나 예/아니오로 답할 수 있게 3~4개로 구체적으로 써줘.
+특정 결론(지급 또는 부지급)으로 유도하는 표현은 쓰지 말고, 중립적인 문장으로 써줘. 사례에 없는 사실은 [확인 필요]로 남겨줘.</pre></div>
+<h2 id="day-5-s4">초안을 점검합니다</h2>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">의뢰서 점검하기</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">방금 쓴 의뢰서를 자문의 입장에서 검토해줘.
+① 답하기 어렵거나 모호한 질문 ② 특정 결론으로 유도하는 표현 ③ 빠진 제출 자료를 찾아서 고친 문장과 함께 알려줘.</pre></div>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 사실관계에 추정이나 의견이 섞이지 않았습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 질의사항이 수치나 예/아니오로 답할 수 있는 질문입니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> 결론을 유도하는 표현이 없습니다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> [확인 필요] 부분을 내가 채워야 할 목록으로 옮겼습니다.</li>
+</ul>
+<aside class="callout"><p class="callout-title">💡 법률자문으로 바꿔 보기</p>
+<p>시간이 남으면 사례 B로 바꿔서 해봅니다. &quot;사례 B로 법률자문 의뢰서를 같은 구조로 써줘. 질의사항에는 상해사망 해당 여부와 관련된 판례 적용 문제를 넣어줘.&quot;</p>
+</aside>
+<p><strong>막히면:</strong> AI가 질문 없이 바로 초안을 쓰면 그대로 진행합니다. 초안이 너무 길면 &quot;A4 한 장 분량으로 줄여줘&quot;라고 요청합니다.</p>
+
+    </article>
+  </section>
+  <section class="day print-break print-compact" id="day-6" role="tabpanel" aria-labelledby="tab-day-6"
+           data-tab="Ⅳ. 정리" data-minutes="1" hidden>
+    <article class="prose">
+<section class="hero"><p class="eyebrow">Ⅳ · 10 MIN<span class="readtime">약 1분</span></p><h1 class="hero-title">오늘 만든 것을 내 업무 도구로 남깁니다</h1>
+<p><mark>오늘 만든 프로젝트와 질문은 내일 바로 쓸 수 있는 도구입니다. 한 번 더 쓰면 내 것이 됩니다.</mark></p>
+</section>
+
+<nav class="toc"><p class="toc-label">이 장의 목차</p><ol><li class="toc-l2"><a href="#day-6-s1">오늘 손에 남은 것</a></li><li class="toc-l2"><a href="#day-6-s2">나만의 질문 모음으로 저장하기</a></li><li class="toc-l2"><a href="#day-6-s3">실무 적용 체크리스트: AI 답변을 쓰기 전 확인할 다섯 가지</a></li><li class="toc-l2"><a href="#day-6-s4">내일 해볼 한 가지</a></li></ol></nav>
+
+<h2 id="day-6-s1">오늘 손에 남은 것</h2>
+<div class="table-wrap"><table><thead>
+<tr>
+<th>만든 것</th>
+<th>어디에 있나요</th>
+<th>다음에는</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>장기손사 심사 보조 프로젝트</td>
+<td>ChatGPT 프로젝트 목록</td>
+<td>비식별 처리한 실무 질문에 다시 씁니다</td>
+</tr>
+<tr>
+<td>장해분류표 노트북</td>
+<td>Gemini Notebook</td>
+<td>공개 약관 원문을 추가해 넓혀 갑니다</td>
+</tr>
+<tr>
+<td>사례 검색·확인 표</td>
+<td>프로젝트 안의 채팅</td>
+<td>원문 확인 습관을 유지합니다</td>
+</tr>
+<tr>
+<td>자문 의뢰서 초안</td>
+<td>프로젝트 안의 채팅</td>
+<td>회사 양식에 맞춰 구조만 가져다 씁니다</td>
+</tr>
+</tbody>
+</table></div><h2 id="day-6-s2">1. 나만의 질문 모음으로 저장하기</h2>
+<p>오늘 쓴 질문 중 다시 쓸 것을 골라 프로젝트에 저장합니다.</p>
+<div class="prompt"><div class="prompt-head"><span class="prompt-label">오늘 대화를 질문 모음으로 정리하기</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">이 프로젝트에서 오늘 내가 쓴 질문 중 다른 사건에도 다시 쓸 수 있는 것을 골라줘.
+사례의 구체적인 내용은 [대괄호] 빈칸으로 바꾸고, 각 질문을 언제 쓰는지 한 줄씩 붙여서 &quot;나의 심사 질문 모음&quot;으로 정리해줘.</pre></div>
+<p>정리된 질문 모음은 휴대폰 메모 앱에 복사해 두거나 프로젝트 지침 아래에 붙여 둡니다.</p>
+<h2 id="day-6-s3">2. 실무 적용 체크리스트: AI 답변을 쓰기 전 확인할 다섯 가지</h2>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> <strong>개인정보:</strong> 고객을 알아볼 수 있는 정보를 넣지 않았다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> <strong>원문 대조:</strong> 약관 조항은 해당 계약의 약관 원문과 대조했다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> <strong>실재 확인:</strong> 판례·분쟁조정 사례는 공식 사이트에서 실제로 있는지 확인했다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> <strong>사실과 의견 구분:</strong> AI가 추가한 사실이나 숫자가 없는지 확인했다.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> <strong>최종 판단:</strong> 결론은 회사 기준과 내 검토로 정했고, AI의 의견은 참고로만 썼다.</li>
+</ul>
+<h2 id="day-6-s4">내일 해볼 한 가지</h2>
+<p><strong>내일 가장 먼저 AI에게 물어볼 업무 한 가지</strong>를 적습니다. 오늘 배운 원칙대로 말로 설명하고, 먼저 질문받는 것부터 시작합니다.</p>
+<blockquote>
+<p>내일 해볼 것: ____________________________________________</p>
+</blockquote>
+<aside class="callout"><p class="callout-title">🙏 수고하셨습니다</p>
+<p>AI는 쓰는 만큼 늡니다. 막히는 지점이 생기면 &quot;이걸 어떻게 물어보면 좋을지 나에게 질문해줘&quot;라고 AI에게 먼저 부탁해 보세요.</p>
+</aside>
+
+    </article>
+  </section>
+
+  <nav class="pager">
+    <button class="pager-btn" type="button" data-dir="prev">← 이전</button>
+    <button class="pager-btn" type="button" data-dir="next">다음 →</button>
+  </nav>
+</main>
+
+<footer class="footer">
+  <p>보험에서의 AI</p>
+  <p class="footer-sub">장기손사 인보험 실무 활용 · 현대해상 사망·후유장해 심사 실무자를 위한 생성형 AI 실습</p>
+</footer>
+
+<!-- 오른쪽 아래 도구 모음 -->
+<div class="tools">
+  <button class="tool tool-top" type="button" data-act="top" aria-label="맨 위로" hidden>↑</button>
+  <div class="tool-menu" hidden>
+    <button class="tool tool-item" type="button" data-act="search"><i>🔍</i> <span>검색</span></button>
+    <button class="tool tool-item" type="button" data-act="font"><i>가</i> <span data-label="font">글자 크기</span></button>
+    <button class="tool tool-item" type="button" data-act="theme"><i data-icon="theme">🌙</i> <span data-label="theme">어둡게</span></button>
+    <button class="tool tool-item" type="button" data-act="print"><i>🖨️</i> <span>교재 출력하기</span></button>
+    <button class="tool tool-item" type="button" data-act="reset"><i>↺</i> <span>진도 지우기</span></button>
+  </div>
+  <button class="tool tool-main" type="button" data-act="menu" aria-label="도구 열기" aria-expanded="false">⋯</button>
+</div>
+
+<!-- 전체 검색 -->
+<div class="search" hidden>
+  <div class="search-box">
+    <div class="search-head">
+      <input class="search-input" type="search" placeholder="교재 전체에서 찾기…"
+             autocomplete="off" aria-label="교재 전체 검색">
+      <button class="search-close" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="search-results"><p class="search-hint">찾을 낱말을 입력하세요.</p></div>
+  </div>
+</div>
+
+<div class="toast" role="status" aria-live="polite"></div>
+
+<script>
+window.__WB_KEY__ = "\ubcf4\ud5d8\uc5d0\uc11c\uc758 AI|7";
+/* ============================================================
+   강의 웹교재 — 동작 스크립트
+   외부 라이브러리 없음. file:// 로 직접 열어도 동작합니다.
+   ============================================================ */
+(function () {
+  "use strict";
+
+  var pills = [].slice.call(document.querySelectorAll(".pill"));
+  var panels = [].slice.call(document.querySelectorAll(".day"));
+  var ids = panels.map(function (p) { return p.id; });
+  var progressBar = document.querySelector(".progress > i");
+  var toastEl = document.querySelector(".toast");
+  var pagerBtns = [].slice.call(document.querySelectorAll(".pager-btn"));
+  var tabsWrap = document.querySelector(".tabs-wrap");
+  var tabsEl = document.querySelector(".tabs");
+  var current = -1;
+
+  /* ── 저장소 (진도·체크·설정) ───────────────────────────── */
+
+  var KEY = "workbook:" + hash(String(window.__WB_KEY__ || document.title));
+  var state = read();
+
+  function hash(str) {
+    var h = 5381;
+    for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+  }
+
+  function read() {
+    try {
+      return JSON.parse(localStorage.getItem(KEY)) || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function write() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch (e) {
+      /* 시크릿 모드 등 저장이 막힌 환경 — 기능만 조용히 비활성 */
+    }
+  }
+
+  /* ── 토스트 ────────────────────────────────────────────── */
+
+  function toast(message) {
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.classList.add("is-on");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () {
+      toastEl.classList.remove("is-on");
+    }, 1800);
+  }
+
+  /* ── 탭 전환 ───────────────────────────────────────────── */
+
+  function centerPill(pill) {
+    var strip = pill.parentNode;
+    var target = pill.offsetLeft - (strip.clientWidth - pill.offsetWidth) / 2;
+    var max = strip.scrollWidth - strip.clientWidth;
+    var left = Math.max(0, Math.min(target, max));
+    if (strip.scrollTo) strip.scrollTo({ left: left, behavior: "smooth" });
+    else strip.scrollLeft = left;
+  }
+
+  function show(index, opts) {
+    opts = opts || {};
+    if (index < 0 || index >= panels.length || index === current) return;
+    current = index;
+
+    panels.forEach(function (panel, i) { panel.hidden = i !== index; });
+
+    pills.forEach(function (pill, i) {
+      var on = i === index;
+      pill.classList.toggle("is-active", on);
+      pill.setAttribute("aria-selected", on ? "true" : "false");
+    });
+
+    pagerBtns.forEach(function (btn) {
+      var isPrev = btn.getAttribute("data-dir") === "prev";
+      btn.disabled = isPrev ? index === 0 : index === panels.length - 1;
+      var sibling = panels[isPrev ? index - 1 : index + 1];
+      btn.textContent = sibling
+        ? (isPrev ? "← " + sibling.dataset.tab : sibling.dataset.tab + " →")
+        : (isPrev ? "← 이전" : "다음 →");
+    });
+
+    if (pills[index]) centerPill(pills[index]);
+
+    if (!opts.keepScroll) {
+      // 부드러운 스크롤이 켜져 있어도 탭 전환 시에는 즉시 위로 올린다.
+      var behavior = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = "auto";
+      window.scrollTo(0, 0);
+      document.documentElement.style.scrollBehavior = behavior;
+    }
+
+    if (!opts.silent) {
+      var target = "#" + panels[index].id;
+      if (location.hash !== target) history.replaceState(null, "", target);
+    }
+
+    state.last = panels[index].id;
+    write();
+
+    updateProgress();
+    scheduleReadCheck();
+  }
+
+  pills.forEach(function (pill, i) {
+    pill.addEventListener("click", function () { show(i); });
+  });
+
+  pagerBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      show(current + (btn.getAttribute("data-dir") === "prev" ? -1 : 1));
+    });
+  });
+
+  /* ── 다 읽은 Day 표시 ──────────────────────────────────── */
+
+  state.read = state.read || [];
+
+  function markRead(id) {
+    if (state.read.indexOf(id) !== -1) return;
+    state.read.push(id);
+    write();
+    paintRead();
+  }
+
+  function paintRead() {
+    pills.forEach(function (pill, i) {
+      pill.classList.toggle("is-read", state.read.indexOf(ids[i]) !== -1);
+    });
+  }
+
+  function scheduleReadCheck() {
+    clearTimeout(scheduleReadCheck._t);
+    scheduleReadCheck._t = setTimeout(checkRead, 2500);
+  }
+
+  function checkRead() {
+    if (current < 0) return;
+    var doc = document.documentElement;
+    var scrollable = doc.scrollHeight - window.innerHeight;
+    // 스크롤할 게 없을 만큼 짧은 장이거나, 거의 끝까지 내려왔으면 읽은 것으로 본다.
+    if (scrollable < 120 || window.scrollY / scrollable > 0.85) markRead(ids[current]);
+  }
+
+  /* ── 스크롤 진행바 · 맨 위로 ───────────────────────────── */
+
+  var topBtn = document.querySelector(".tool-top");
+
+  function updateProgress() {
+    var doc = document.documentElement;
+    var scrollable = doc.scrollHeight - window.innerHeight;
+    var ratio = scrollable > 0 ? window.scrollY / scrollable : 0;
+    if (progressBar) progressBar.style.width = Math.max(0, Math.min(1, ratio)) * 100 + "%";
+    if (topBtn) topBtn.hidden = window.scrollY < 400;
+  }
+
+  var ticking = false;
+  window.addEventListener("scroll", function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () {
+      updateProgress();
+      checkRead();
+      ticking = false;
+    });
+  }, { passive: true });
+
+  window.addEventListener("resize", function () {
+    updateProgress();
+    paintTabHint();
+  });
+
+  /* ── 탭이 더 있다는 힌트 ───────────────────────────────── */
+
+  function paintTabHint() {
+    if (!tabsWrap || !tabsEl) return;
+    var more = tabsEl.scrollWidth - tabsEl.clientWidth - tabsEl.scrollLeft > 8;
+    tabsWrap.classList.toggle("is-scrollable", more);
+  }
+  if (tabsEl) tabsEl.addEventListener("scroll", paintTabHint, { passive: true });
+
+  /* ── 체크리스트 저장 ───────────────────────────────────── */
+
+  state.tasks = state.tasks || {};
+
+  panels.forEach(function (panel) {
+    var boxes = [].slice.call(panel.querySelectorAll(".task-list-item-checkbox"));
+    var saved = state.tasks[panel.id] || [];
+
+    boxes.forEach(function (box, i) {
+      box.disabled = false;
+      box.checked = saved.indexOf(i) !== -1;
+      box.closest(".task-list-item").classList.toggle("is-done", box.checked);
+
+      box.addEventListener("change", function () {
+        var list = state.tasks[panel.id] || [];
+        var at = list.indexOf(i);
+        if (box.checked && at === -1) list.push(i);
+        else if (!box.checked && at !== -1) list.splice(at, 1);
+        state.tasks[panel.id] = list;
+        write();
+        box.closest(".task-list-item").classList.toggle("is-done", box.checked);
+      });
+    });
+  });
+
+  /* ── 딥링크 (#day-2 로 바로 열기) ──────────────────────── */
+
+  function indexFromHash() {
+    var id = decodeURIComponent((location.hash || "").replace(/^#/, ""));
+    if (!id) return -1;
+
+    var direct = ids.indexOf(id);
+    if (direct !== -1) return direct;
+
+    // 소제목 앵커(#day-1-s2)로 들어온 경우 그 소제목이 속한 Day를 연다.
+    for (var i = 0; i < panels.length; i++) {
+      var el = document.getElementById(id);
+      if (el && panels[i].contains(el)) return i;
+    }
+    return -1;
+  }
+
+  window.addEventListener("hashchange", function () {
+    var i = indexFromHash();
+    if (i !== -1 && i !== current) show(i, { silent: true });
+  });
+
+  /* ── 복사 버튼 ─────────────────────────────────────────── */
+
+  function legacyCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function markCopied(btn, ok) {
+    if (!ok) {
+      toast("복사에 실패했어요. 직접 선택해 주세요.");
+      return;
+    }
+    var original = btn.dataset.label || btn.textContent;
+    btn.dataset.label = original;
+    btn.textContent = "복사됨";
+    btn.classList.add("is-done");
+    clearTimeout(btn._t);
+    btn._t = setTimeout(function () {
+      btn.textContent = original;
+      btn.classList.remove("is-done");
+    }, 1800);
+    toast("복사했습니다");
+  }
+
+  document.addEventListener("click", function (event) {
+    var btn = event.target.closest ? event.target.closest(".copy-btn") : null;
+    if (!btn) return;
+
+    var box = btn.closest(".prompt, .code");
+    var source = box && box.querySelector(".prompt-body, pre code, pre");
+    if (!source) return;
+
+    var text = source.textContent.replace(/\s+$/, "");
+
+    // file:// 이나 비보안 컨텍스트에서는 클립보드 API가 막히므로 폴백을 둔다.
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(
+        function () { markCopied(btn, true); },
+        function () { markCopied(btn, legacyCopy(text)); }
+      );
+    } else {
+      markCopied(btn, legacyCopy(text));
+    }
+  });
+
+  /* ── 목차 링크: 탭 전환 후 해당 위치로 ─────────────────── */
+
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest ? event.target.closest('.toc a[href^="#"]') : null;
+    if (!link) return;
+    event.preventDefault();
+    var id = decodeURIComponent(link.getAttribute("href").slice(1));
+    var target = document.getElementById(id);
+    if (!target) return;
+    var panel = target.closest(".day");
+    if (panel) {
+      var i = panels.indexOf(panel);
+      if (i !== -1 && i !== current) show(i, { keepScroll: true, silent: true });
+    }
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    history.replaceState(null, "", "#" + id);
+  });
+
+  /* ── 도구 모음 ─────────────────────────────────────────── */
+
+  var toolsEl = document.querySelector(".tools");
+  var menuEl = document.querySelector(".tool-menu");
+  var mainBtn = document.querySelector(".tool-main");
+
+  function setMenu(open) {
+    if (!menuEl || !mainBtn) return;
+    menuEl.hidden = !open;
+    if (toolsEl) toolsEl.classList.toggle("is-open", open);
+    mainBtn.classList.toggle("is-open", open);
+    mainBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    mainBtn.textContent = open ? "✕" : "⋯";
+  }
+
+  document.addEventListener("click", function (event) {
+    var tool = event.target.closest ? event.target.closest(".tool") : null;
+    if (!tool) {
+      if (menuEl && !menuEl.hidden && !event.target.closest(".tools")) setMenu(false);
+      return;
+    }
+    var act = tool.getAttribute("data-act");
+    if (act === "menu") { setMenu(menuEl.hidden); return; }
+    if (act === "top") { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+
+    setMenu(false);
+    if (act === "search") openSearch();
+    else if (act === "font") cycleFont();
+    else if (act === "theme") toggleTheme();
+    else if (act === "print") window.print();
+    else if (act === "reset") resetProgress();
+  });
+
+  /* ── 글자 크기 ─────────────────────────────────────────── */
+
+  var FONT_STEPS = [
+    { v: 0.92, label: "작게" },
+    { v: 1, label: "보통" },
+    { v: 1.12, label: "크게" },
+    { v: 1.26, label: "아주 크게" }
+  ];
+  var fontLabel = document.querySelector('[data-label="font"]');
+
+  function applyFont() {
+    var step = FONT_STEPS[state.fs == null ? 1 : state.fs];
+    if (!step) step = FONT_STEPS[1];
+    document.documentElement.style.setProperty("--fs", step.v);
+    if (fontLabel) fontLabel.textContent = "글자 " + step.label;
+  }
+
+  function cycleFont() {
+    state.fs = ((state.fs == null ? 1 : state.fs) + 1) % FONT_STEPS.length;
+    write();
+    applyFont();
+    toast("글자 크기 · " + FONT_STEPS[state.fs].label);
+  }
+
+  /* ── 밝게 / 어둡게 ─────────────────────────────────────── */
+
+  var themeLabel = document.querySelector('[data-label="theme"]');
+  var themeIcon = document.querySelector('[data-icon="theme"]');
+
+  function systemDark() {
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+
+  function effectiveDark() {
+    if (state.theme === "dark") return true;
+    if (state.theme === "light") return false;
+    return systemDark();
+  }
+
+  function applyTheme() {
+    if (state.theme) document.documentElement.setAttribute("data-theme", state.theme);
+    else document.documentElement.removeAttribute("data-theme");
+    var dark = effectiveDark();
+    if (themeLabel) themeLabel.textContent = dark ? "밝게" : "어둡게";
+    if (themeIcon) themeIcon.textContent = dark ? "☀️" : "🌙";
+  }
+
+  function toggleTheme() {
+    state.theme = effectiveDark() ? "light" : "dark";
+    write();
+    applyTheme();
+    toast(state.theme === "dark" ? "어두운 화면" : "밝은 화면");
+  }
+
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    var onScheme = function () { if (!state.theme) applyTheme(); };
+    if (mq.addEventListener) mq.addEventListener("change", onScheme);
+    else if (mq.addListener) mq.addListener(onScheme);
+  }
+
+  /* ── 진도 지우기 ───────────────────────────────────────── */
+
+  function resetProgress() {
+    if (!window.confirm("읽은 표시와 체크리스트를 모두 지울까요?\n(글자 크기와 화면 설정은 그대로 둡니다)")) return;
+    state.read = [];
+    state.tasks = {};
+    delete state.last;
+    write();
+    paintRead();
+    panels.forEach(function (panel) {
+      [].slice.call(panel.querySelectorAll(".task-list-item-checkbox")).forEach(function (box) {
+        box.checked = false;
+        box.closest(".task-list-item").classList.remove("is-done");
+      });
+    });
+    toast("진도를 지웠습니다");
+  }
+
+  /* ── 전체 검색 ─────────────────────────────────────────── */
+
+  var searchEl = document.querySelector(".search");
+  var searchInput = document.querySelector(".search-input");
+  var searchResults = document.querySelector(".search-results");
+  var index = null;
+
+  function buildIndex() {
+    if (index) return index;
+    index = [];
+    panels.forEach(function (panel, di) {
+      var found = [].slice.call(panel.querySelectorAll(
+        "h1, h2, h3, p, li, .prompt-body, .code pre, td, th, blockquote"
+      ));
+      // 다른 후보를 품고 있는 요소는 빼서 같은 문장이 두 번 잡히지 않게 한다.
+      var leaves = found.filter(function (el) {
+        return !found.some(function (other) { return other !== el && el.contains(other); });
+      });
+
+      var section = null;
+      var walker = [].slice.call(panel.querySelectorAll("h2, h3, " +
+        "h1, p, li, .prompt-body, .code pre, td, th, blockquote"));
+
+      walker.forEach(function (el) {
+        if (el.tagName === "H2" || el.tagName === "H3") {
+          section = { id: el.id, text: el.textContent.trim() };
+          return;
+        }
+        if (leaves.indexOf(el) === -1) return;
+        var text = el.textContent.replace(/\s+/g, " ").trim();
+        if (text.length < 2) return;
+        index.push({
+          day: di,
+          tab: panel.dataset.tab,
+          section: section,
+          text: text,
+          el: el
+        });
+      });
+    });
+    return index;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function snippet(text, query) {
+    var at = text.toLowerCase().indexOf(query);
+    var from = Math.max(0, at - 34);
+    var to = Math.min(text.length, at + query.length + 74);
+    var head = (from > 0 ? "… " : "") + text.slice(from, at);
+    var hit = text.slice(at, at + query.length);
+    var tail = text.slice(at + query.length, to) + (to < text.length ? " …" : "");
+    return escapeHtml(head) + '<mark class="hit">' + escapeHtml(hit) + "</mark>" + escapeHtml(tail);
+  }
+
+  function runSearch(raw) {
+    var query = raw.trim().toLowerCase();
+    if (!query) {
+      searchResults.innerHTML = '<p class="search-hint">찾을 낱말을 입력하세요.</p>';
+      return;
+    }
+
+    var hits = buildIndex().filter(function (entry) {
+      return entry.text.toLowerCase().indexOf(query) !== -1;
+    }).slice(0, 40);
+
+    if (!hits.length) {
+      searchResults.innerHTML = '<p class="search-empty">"' + escapeHtml(raw) + '" 를 찾지 못했습니다.</p>';
+      return;
+    }
+
+    searchResults.innerHTML = "";
+    hits.forEach(function (entry, i) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "search-item";
+      var where = entry.tab + (entry.section ? " › " + entry.section.text : "");
+      btn.innerHTML =
+        '<span class="search-where">' + escapeHtml(where) + "</span>" +
+        '<span class="search-snippet">' + snippet(entry.text, query) + "</span>";
+      btn.addEventListener("click", function () { gotoHit(entry); });
+      searchResults.appendChild(btn);
+      if (i === 0) btn.dataset.first = "1";
+    });
+  }
+
+  function gotoHit(entry) {
+    closeSearch();
+    if (entry.day !== current) show(entry.day, { keepScroll: true, silent: true });
+    var target = entry.el;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.classList.add("is-flash");
+    setTimeout(function () { target.classList.remove("is-flash"); }, 1400);
+  }
+
+  function openSearch() {
+    if (!searchEl) return;
+    searchEl.hidden = false;
+    document.body.style.overflow = "hidden";
+    searchInput.value = "";
+    runSearch("");
+    searchInput.focus();
+  }
+
+  function closeSearch() {
+    if (!searchEl) return;
+    searchEl.hidden = true;
+    document.body.style.overflow = "";
+  }
+
+  if (searchInput) {
+    var debounce;
+    searchInput.addEventListener("input", function () {
+      clearTimeout(debounce);
+      debounce = setTimeout(function () { runSearch(searchInput.value); }, 120);
+    });
+    searchInput.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter") return;
+      var first = searchResults.querySelector(".search-item");
+      if (first) first.click();
+    });
+  }
+
+  var closeBtn = document.querySelector(".search-close");
+  if (closeBtn) closeBtn.addEventListener("click", closeSearch);
+  if (searchEl) {
+    searchEl.addEventListener("click", function (event) {
+      if (event.target === searchEl) closeSearch();
+    });
+  }
+
+  /* ── 키보드 ────────────────────────────────────────────── */
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      if (searchEl && !searchEl.hidden) { closeSearch(); return; }
+      if (menuEl && !menuEl.hidden) { setMenu(false); return; }
+    }
+
+    var tag = (event.target.tagName || "").toLowerCase();
+    var typing = tag === "input" || tag === "textarea" || event.target.isContentEditable;
+
+    // Ctrl/⌘ + F 로 교재 전체 검색
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      openSearch();
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey || typing) return;
+    if (searchEl && !searchEl.hidden) return;
+
+    if (event.key === "ArrowRight") show(current + 1);
+    else if (event.key === "ArrowLeft") show(current - 1);
+    else if (event.key === "/") { event.preventDefault(); openSearch(); }
+  });
+
+  // Include collapsed instructions in print, then restore the reading state.
+  var printDetails = [];
+  window.addEventListener("beforeprint", function () {
+    if (printDetails.length) return;
+    printDetails = Array.from(document.querySelectorAll("details:not([open])"));
+    printDetails.forEach(function (el) { el.open = true; });
+  });
+  window.addEventListener("afterprint", function () {
+    printDetails.forEach(function (el) { el.open = false; });
+    printDetails = [];
+  });
+
+  /* ── 시작 ──────────────────────────────────────────────── */
+
+  applyFont();
+  applyTheme();
+  paintRead();
+  paintTabHint();
+
+  var fromHash = indexFromHash();
+  if (fromHash !== -1) {
+    show(fromHash, { silent: true });
+    var anchorId = decodeURIComponent((location.hash || "").replace(/^#/, ""));
+    if (ids.indexOf(anchorId) === -1) {
+      var el = document.getElementById(anchorId);
+      if (el) el.scrollIntoView({ block: "start" });
+    }
+  } else {
+    var resumeAt = state.last ? ids.indexOf(state.last) : -1;
+    show(resumeAt > 0 ? resumeAt : 0, { silent: true });
+    if (resumeAt > 0) toast("이어서 봅니다 · " + panels[resumeAt].dataset.tab);
+  }
+})();
+
+</script>
+</body>
+</html>
