@@ -1322,17 +1322,20 @@ code {
 <h2 id="day-3-s1">왜 Gemini Notebook인가요?</h2>
 <p>ChatGPT에게 &quot;척추 장해 지급률&quot;을 물으면 예전 약관이나 다른 회사 기준을 섞어 답할 수 있습니다. Gemini Notebook은 <strong>내가 올린 자료만</strong> 근거로 답하고, 답 옆에 근거가 된 원문 위치(번호)를 표시합니다. 번호를 누르면 원문의 해당 부분이 열립니다.</p>
 <h2 id="day-3-s2">실습 · 사례 A를 실제 약관과 대조하기</h2>
-<p>오늘은 <strong>현대해상 퍼펙트플러스종합보험(세만기형)(Hi2508)</strong> 공개 약관 전체(1,264쪽)를 소스로 씁니다. Gemini Notebook은 자료 1개당 50만 단어까지 받기 때문에, 약관 전체를 <strong>두 파일로 나눠</strong> 둘 다 올립니다.</p>
+<p>오늘은 <strong>현대해상 퍼펙트플러스종합보험(세만기형)(Hi2508)</strong> 공개 약관에서 <strong>보통약관, 상해사망·상해후유장해 특약, [별표1] 장해분류표</strong>를 원문 그대로 뽑은 49쪽 PDF를 소스로 씁니다.</p>
 <ol>
-<li>아래 두 버튼을 눌러 약관 파일 2개를 휴대폰에 내려받습니다. (1부 8.5MB, 2부 6.4MB)</li>
+<li>아래 버튼을 눌러 약관 발췌 PDF(0.9MB)를 휴대폰에 내려받습니다.</li>
 </ol>
-<p><a href="perfectplus-Hi2508-part1.pdf" download style="display:inline-block;max-width:100%;box-sizing:border-box;padding:10px 16px;margin:4px 6px 4px 0;border:2px solid currentColor;border-radius:12px;font-weight:700;text-decoration:none;">약관 1부 내려받기 ↓</a><a href="perfectplus-Hi2508-part2.pdf" download style="display:inline-block;max-width:100%;box-sizing:border-box;padding:10px 16px;margin:4px 6px 4px 0;border:2px solid currentColor;border-radius:12px;font-weight:700;text-decoration:none;">약관 2부 내려받기 ↓</a></p>
+<p><a href="perfectplus-Hi2508-excerpt.pdf" download style="display:inline-block;max-width:100%;box-sizing:border-box;padding:10px 16px;border:2px solid currentColor;border-radius:12px;font-weight:700;text-decoration:none;">약관 발췌 PDF 내려받기 ↓</a></p>
 <ol start="2">
 <li>Gemini Notebook 앱(또는 웹)에서 <strong>새 노트북</strong>을 만듭니다.</li>
-<li><strong>소스 추가</strong>에서 파일 올리기를 골라 내려받은 <strong>두 파일을 모두</strong> 올립니다. 올라가는 데 1~2분 걸립니다.</li>
+<li><strong>소스 추가</strong>에서 파일 올리기를 골라 내려받은 PDF를 올립니다.</li>
 <li>노트북 채팅창에 아래 질문 프롬프트를 붙여넣습니다.</li>
-<li>답의 근거 번호를 눌러 원문과 맞는지 확인합니다. 척추 장해 기준은 <strong>2부의 [별표1] 장해분류표</strong>(원문 1033~1034쪽)에 있습니다.</li>
+<li>답의 근거 번호를 눌러 원문과 맞는지 확인합니다. 척추 장해 기준은 PDF 뒤쪽 <strong>[별표1] 장해분류표</strong>에 있습니다.</li>
 </ol>
+<aside class="callout"><p class="callout-title">💡 왜 약관 전체가 아니라 발췌인가요?</p>
+<p>1,000쪽이 넘는 약관 전체를 올리면 파일은 올라가도 <strong>앞부분만 읽히고 뒷부분은 빠질 수</strong> 있습니다. 실제로 해 보니 앞쪽 조항까지만 답에 쓰였습니다. 실무에서도 필요한 보통약관·특약·별표만 골라 올리는 편이 정확합니다.</p>
+</aside>
 <div class="prompt"><div class="prompt-head"><span class="prompt-label">Gemini Notebook에 묻기 · 사례 A 검토</span><button class="copy-btn" type="button">복사</button></div><pre class="prompt-body">올린 약관 자료만 근거로 답해줘. 자료에 없는 내용은 &quot;자료에 없음&quot;이라고 말해줘.
 연습용 가상 사례야. 48세 남성이 계단에서 넘어져 제1요추 압박골절을 입었고 수술(유합·고정술) 없이 보조기 치료를 받았어. 후유장해진단서의 압박률은 42%, 회사 영상 재판독 압박률은 약 33%이고 인접 척추에 퇴행성 변화가 있다는 소견이야.
 1. 운동장해 항목에 해당할 가능성이 있는지, 근거 조항과 함께 알려줘.
